@@ -53,6 +53,22 @@ class TestReadToxConfigToml:
         assert config.dependency_groups_set == set(config.dependency_groups)
         assert config.commands_list == list(config.commands)
 
+    def test_no_virtualenv_created(self, tox_project_toml: Path) -> None:
+        """Reading config must not create a .tox virtual environment."""
+        read_tox_config("py312", path=tox_project_toml)
+        assert not (tox_project_toml / ".tox").exists()
+
+
+class TestReadToxConfigMinversion:
+    """Config with minversion = 666; we only read config, so it should still work."""
+
+    def test_minversion_666_still_readable(self, tox_project_minversion_666: Path) -> None:
+        """Reading config does not run tox, so an impossible minversion does not block us."""
+        config = read_tox_config("py312", path=tox_project_minversion_666)
+        assert config.name == "py312"
+        assert "pytest" in config.deps
+        assert config.commands[0].args == ("pytest",)
+
 
 class TestReadToxConfigIni:
     """Tests using tox.ini config."""
