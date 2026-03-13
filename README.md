@@ -4,21 +4,43 @@ Read tox configuration (deps, extras, dependency groups, commands) using the tox
 
 ## Example usage
 
+Given a tox configuration like this:
+
+```toml
+[project]
+name = "my-project"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.tox]
+env_list = ["py312", "lint"]
+
+[tool.tox.env.py312]
+deps = ["pytest>=8"]
+extras = ["dev"]
+dependency_groups = ["test"]
+commands = [["pytest", "tests"], ["coverage", "report"]]
+
+[tool.tox.env.lint]
+deps = ["ruff"]
+commands = [["ruff", "check", "."]]
+```
+
+This is what the library returns:
+
 ```python
-from pathlib import Path
 from toxology import read_tox_config
 
-# Single environment
-config = read_tox_config("py312")  # accepts path=, defaults to .
-print(config.deps)  # tuple of dependency specifier strings
-print(config.extras)  # frozenset of extra names
-print(config.dependency_groups)  # frozenset of dependency group names
-print(config.commands)  # tuple of ToxCommand (each has .args, .shell)
+config = read_tox_config("py312")  # path= defaults to current directory
+assert config.name == "py312"
+assert config.deps == ("pytest>=8",)
+assert config.extras == frozenset({"dev"})
+assert config.dependency_groups == frozenset({"test"})
+assert tuple(c.args for c in config.commands) == (("pytest", "tests"), ("coverage", "report"))
 
-# Multiple environments: call in a loop
-for env in ["py312", "lint"]:
-    config = read_tox_config(env)
-    print(f"{env}: {config.deps}, {[c.args for c in config.commands]}")
+configs = {env: read_tox_config(env) for env in ["py312", "lint"]}
+assert configs["lint"].name == "lint"
+assert configs["lint"].commands[0].args == ("ruff", "check", ".")
 ```
 
 ## Development

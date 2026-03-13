@@ -1,8 +1,13 @@
 """Tests for read_tox_config using fixtures with actual tox config files."""
 
+import ast
+import linecache
 from pathlib import Path
 
 import pytest
+
+# this is a private API but it has been available here at least since pytest 1.0.0
+from _pytest.assertion.rewrite import rewrite_asserts
 
 from toxology import ToxCommand, ToxEnvConfig, read_tox_config
 
@@ -133,6 +138,49 @@ class TestMinimalConfig:
     def test_minimal_toml_has_name(self, tox_project_minimal_toml: Path) -> None:
         config = read_tox_config("py312", path=tox_project_minimal_toml)
         assert config.name == "py312"
+
+
+class TestReadmeExample:
+    """Test the documented example: TOML config + code-with-asserts from README."""
+
+    @staticmethod
+    def _extract_fenced_block(text: str, lang: str) -> str:
+        """Return the content of the first ```lang ... ``` block in text."""
+        marker = f"```{lang}\n"
+        start = text.find(marker)
+        assert start >= 0, f"README has no {lang} code block"
+        content_start = start + len(marker)
+        content_end = text.find("\n```", content_start)
+        assert content_end > content_start, f"README {lang} block not closed"
+        return text[content_start:content_end]
+
+    @staticmethod
+    def _exec_with_pytest_asserts(code: str, namespace: dict, filename: str) -> None:
+        """Run code with pytest assertion rewriting and source in linecache for friendly tracebacks."""
+        tree = ast.parse(code)
+        rewrite_asserts(tree, code.encode(), filename)
+        linecache.cache[filename] = (
+            len(code),
+            None,  # mtime: no real file, so no invalidation by modification time
+            code.splitlines(keepends=True),
+            filename,
+        )
+        exec(compile(tree, filename, "exec"), namespace)
+
+    def test_readme_example_blocks(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Parse README's example TOML and code block; create config, run code with asserts."""
+        readme = Path(__file__).resolve().parent.parent / "README.md"
+        text = readme.read_text()
+        toml_block = self._extract_fenced_block(text, "toml")
+        python_block = self._extract_fenced_block(text, "python")
+
+        (tmp_path / "pyproject.toml").write_text(toml_block)
+        monkeypatch.chdir(tmp_path)
+        namespace: dict = {"read_tox_config": read_tox_config}
+        self._exec_with_pytest_asserts(python_block, namespace, "<README example>")
+        # Assertions are in the executed block; if we get here without exception, test passes
 
 
 class TestToxCommand:
