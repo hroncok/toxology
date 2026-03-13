@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "toxology"
 version = "0.1.0"
-description = "A Python package"
+description = "Read tox configuration (deps, extras, commands) using the tox Python API"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -25,7 +25,12 @@ classifiers = [
     "Programming Language :: Python :: 3.15",
 ]
 
-dependencies = []
+dependencies = [
+    "tox>=4",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/toxology"]
+
+[tool.tox]
+env_list = ["py312"]
