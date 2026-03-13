@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from tox.config.types import Command
-
 if TYPE_CHECKING:
+    from typing import TypeVar
+
     from tox.config.cli.parse import Options
+    from tox.config.types import Command
     from tox.session.state import State
 
+    T = TypeVar("T")
 
 @dataclass(frozen=True)
 class ToxEnvConfig:
@@ -77,19 +79,19 @@ def read_tox_config(env: str, path: Path | None = None) -> ToxEnvConfig:
     deps_conf = conf["deps"]
     # unroll() -> (pip_options, dep_specifiers); we only need the dep strings
     _, deps_list = deps_conf.unroll()
-    # Legacy or minimal configs (e.g. some tox.ini) may not define these keys
-    extras_set = _get_conf(conf, "extras", frozenset())
-    dependency_groups_set = _get_conf(conf, "dependency_groups", frozenset())
+    extras_set = _get_conf(conf, "extras", frozenset[str]())
+    dependency_groups_set = _get_conf(conf, "dependency_groups", frozenset[str]())
     commands_pre = conf["commands_pre"]
     commands_main = conf["commands"]
     commands_post = conf["commands_post"]
-    all_commands = [*commands_pre, *commands_main, *commands_post]
+    all_commands = (*commands_pre, *commands_main, *commands_post)
+
     return ToxEnvConfig(
         name=env,
         deps=tuple(deps_list),
         extras=frozenset(extras_set),
         dependency_groups=frozenset(dependency_groups_set),
-        commands=tuple(all_commands),
+        commands=all_commands,
     )
 
 
@@ -100,10 +102,10 @@ def _get_tox_options(path: Path, env: str) -> tuple[Options, list[str]]:
     return get_options(*args), args
 
 
-def _get_conf(conf: object, key: str, default: object) -> object:
+def _get_conf(conf: object, key: str, default: T) -> T:
     """Return conf[key], or default if key is missing."""
     try:
-        return conf[key]  # type: ignore[index]
+        return conf[key]  # type: ignore[index, return-value]
     except KeyError:
         return default
 
