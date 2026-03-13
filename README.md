@@ -36,11 +36,12 @@ assert config.name == "py312"
 assert config.deps == ("pytest>=8",)
 assert config.extras == frozenset({"dev"})
 assert config.dependency_groups == frozenset({"test"})
-assert tuple(c.args for c in config.commands) == (("pytest", "tests"), ("coverage", "report"))
+assert tuple(config.commands[0].args) == ("pytest", "tests")
+assert tuple(config.commands[1].args) == ("coverage", "report")
 
 configs = {env: read_tox_config(env) for env in ["py312", "lint"]}
 assert configs["lint"].name == "lint"
-assert configs["lint"].commands[0].args == ("ruff", "check", ".")
+assert tuple(configs["lint"].commands[0].args) == ("ruff", "check", ".")
 ```
 
 ## Development

@@ -6,28 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from tox.config.types import Command
+
 if TYPE_CHECKING:
     from tox.config.cli.parse import Options
     from tox.session.state import State
-
-
-@dataclass(frozen=True)
-class ToxCommand:
-    """A single test command as tox would run it."""
-
-    args: tuple[str, ...]
-    """Command line arguments (e.g. ``('pytest', 'tests')``)."""
-    ignore_exit_code: bool = False
-    """If True, non-zero exit code is ignored."""
-    invert_exit_code: bool = False
-    """If True, exit code is inverted (non-zero = success)."""
-
-    @property
-    def shell(self) -> str:
-        """Shell representation of the command (platform-dependent)."""
-        from tox.execute.request import shell_cmd
-
-        return shell_cmd(list(self.args))
 
 
 @dataclass(frozen=True)
@@ -46,8 +29,8 @@ class ToxEnvConfig:
     """Extras to install for the target package (normalized names)."""
     dependency_groups: frozenset[str]
     """Dependency groups to install for the target package (normalized names)."""
-    commands: tuple[ToxCommand, ...]
-    """Test commands (pre + main + post) as tox would execute them."""
+    commands: tuple[Command, ...]
+    """Test commands (pre + main + post) as tox would execute them. Raw :class:`tox.config.types.Command` (``.args``, ``ignore_exit_code``, ``invert_exit_code``)."""
 
     @property
     def deps_list(self) -> list[str]:
@@ -65,7 +48,7 @@ class ToxEnvConfig:
         return set(self.dependency_groups)
 
     @property
-    def commands_list(self) -> list[ToxCommand]:
+    def commands_list(self) -> list[Command]:
         """Commands as a list (convenience)."""
         return list(self.commands)
 
@@ -94,8 +77,9 @@ def read_tox_config(env: str, path: Path | None = None) -> ToxEnvConfig:
     deps_conf = conf["deps"]
     # unroll() -> (pip_options, dep_specifiers); we only need the dep strings
     _, deps_list = deps_conf.unroll()
-    extras_set = conf["extras"]
-    dependency_groups_set = conf["dependency_groups"]
+    # Legacy or minimal configs (e.g. some tox.ini) may not define these keys
+    extras_set = _get_conf(conf, "extras", frozenset())
+    dependency_groups_set = _get_conf(conf, "dependency_groups", frozenset())
     commands_pre = conf["commands_pre"]
     commands_main = conf["commands"]
     commands_post = conf["commands_post"]
@@ -105,14 +89,7 @@ def read_tox_config(env: str, path: Path | None = None) -> ToxEnvConfig:
         deps=tuple(deps_list),
         extras=frozenset(extras_set),
         dependency_groups=frozenset(dependency_groups_set),
-        commands=tuple(
-            ToxCommand(
-                args=tuple(cmd.args),
-                ignore_exit_code=cmd.ignore_exit_code,
-                invert_exit_code=cmd.invert_exit_code,
-            )
-            for cmd in all_commands
-        ),
+        commands=tuple(all_commands),
     )
 
 
@@ -121,6 +98,14 @@ def _get_tox_options(path: Path, env: str) -> tuple[Options, list[str]]:
 
     args = ["-c", str(path), "config", "-e", env]
     return get_options(*args), args
+
+
+def _get_conf(conf: object, key: str, default: object) -> object:
+    """Return conf[key], or default if key is missing."""
+    try:
+        return conf[key]  # type: ignore[index]
+    except KeyError:
+        return default
 
 
 def _get_tox_state(options: Options, args: list[str]) -> State:

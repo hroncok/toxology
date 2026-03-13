@@ -9,7 +9,7 @@ import pytest
 # this is a private API but it has been available here at least since pytest 1.0.0
 from _pytest.assertion.rewrite import rewrite_asserts
 
-from toxology import ToxCommand, ToxEnvConfig, read_tox_config
+from toxology import ToxEnvConfig, read_tox_config
 
 
 class TestReadToxConfigToml:
@@ -37,14 +37,14 @@ class TestReadToxConfigToml:
     def test_commands_from_toml(self, tox_project_toml: Path) -> None:
         config = read_tox_config("py312", path=tox_project_toml)
         assert len(config.commands) == 2
-        assert config.commands[0].args == ("pytest", "tests")
-        assert config.commands[1].args == ("coverage", "report")
+        assert tuple(config.commands[0].args) == ("pytest", "tests")
+        assert tuple(config.commands[1].args) == ("coverage", "report")
 
     def test_lint_env_from_toml(self, tox_project_toml: Path) -> None:
         config = read_tox_config("lint", path=tox_project_toml)
         assert config.name == "lint"
         assert "ruff" in config.deps
-        assert config.commands[0].args == ("ruff", "check", ".")
+        assert tuple(config.commands[0].args) == ("ruff", "check", ".")
 
     def test_convenience_properties(self, tox_project_toml: Path) -> None:
         config = read_tox_config("py312", path=tox_project_toml)
@@ -67,7 +67,7 @@ class TestReadToxConfigMinversion:
         config = read_tox_config("py312", path=tox_project_minversion_666)
         assert config.name == "py312"
         assert "pytest" in config.deps
-        assert config.commands[0].args == ("pytest",)
+        assert tuple(config.commands[0].args) == ("pytest",)
 
 
 class TestReadToxConfigIni:
@@ -85,8 +85,8 @@ class TestReadToxConfigIni:
 
     def test_commands_from_ini(self, tox_project_ini: Path) -> None:
         config = read_tox_config("py312", path=tox_project_ini)
-        assert any(cmd.args == ("pytest", "tests") for cmd in config.commands)
-        assert any(cmd.args == ("coverage", "report") for cmd in config.commands)
+        assert any(tuple(c.args) == ("pytest", "tests") for c in config.commands)
+        assert any(tuple(c.args) == ("coverage", "report") for c in config.commands)
 
     def test_lint_env_from_ini(self, tox_project_ini: Path) -> None:
         config = read_tox_config("lint", path=tox_project_ini)
@@ -108,13 +108,13 @@ class TestReadToxConfigSetupCfg:
 
     def test_commands_from_setup_cfg(self, tox_project_setup_cfg: Path) -> None:
         config = read_tox_config("py312", path=tox_project_setup_cfg)
-        assert any(cmd.args == ("pytest",) for cmd in config.commands)
+        assert any(tuple(c.args) == ("pytest",) for c in config.commands)
 
     def test_lint_env_from_setup_cfg(self, tox_project_setup_cfg: Path) -> None:
         config = read_tox_config("lint", path=tox_project_setup_cfg)
         assert config.name == "lint"
         assert "ruff" in config.deps
-        assert any(cmd.args == ("ruff", "check", ".") for cmd in config.commands)
+        assert any(tuple(c.args) == ("ruff", "check", ".") for c in config.commands)
 
 
 class TestDefaultPath:
@@ -154,6 +154,21 @@ class TestMinimalConfig:
     def test_minimal_toml_has_name(self, tox_project_minimal_toml: Path) -> None:
         config = read_tox_config("py312", path=tox_project_minimal_toml)
         assert config.name == "py312"
+
+
+class TestEnvConfWithoutExtrasKeys:
+    """When tox env conf does not define 'extras' or 'dependency_groups' (e.g. tox.ini-only)."""
+
+    def test_ini_no_extras_returns_empty_extras_and_dependency_groups(
+        self, tox_project_ini_no_extras: Path
+    ) -> None:
+        """Config without extras/dependency_groups (tox.ini only) does not KeyError; returns empty."""
+        config = read_tox_config("py314", path=tox_project_ini_no_extras)
+        assert config.extras == frozenset()
+        assert config.dependency_groups == frozenset()
+        assert config.name == "py314"
+        assert "pytest" in config.deps
+        assert len(config.commands) >= 1
 
 
 class TestReadmeExample:
@@ -199,11 +214,3 @@ class TestReadmeExample:
         # Assertions are in the executed block; if we get here without exception, test passes
 
 
-class TestToxCommand:
-    """Tests for ToxCommand."""
-
-    def test_shell_property(self) -> None:
-        cmd = ToxCommand(args=("pytest", "tests"))
-        shell = cmd.shell
-        assert "pytest" in shell
-        assert "tests" in shell
