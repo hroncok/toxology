@@ -73,6 +73,68 @@ class TestReadToxConfigIni:
         assert "ruff" in config.deps
 
 
+class TestReadToxConfigSetupCfg:
+    """Tests using setup.cfg tox config ([tox:tox] section)."""
+
+    def test_returns_tox_env_config(self, tox_project_setup_cfg: Path) -> None:
+        config = read_tox_config("py312", path=tox_project_setup_cfg)
+        assert isinstance(config, ToxEnvConfig)
+        assert config.name == "py312"
+
+    def test_deps_from_setup_cfg(self, tox_project_setup_cfg: Path) -> None:
+        config = read_tox_config("py312", path=tox_project_setup_cfg)
+        assert "pytest>=8" in config.deps
+
+    def test_commands_from_setup_cfg(self, tox_project_setup_cfg: Path) -> None:
+        config = read_tox_config("py312", path=tox_project_setup_cfg)
+        assert any(cmd.args == ("pytest",) for cmd in config.commands)
+
+    def test_lint_env_from_setup_cfg(self, tox_project_setup_cfg: Path) -> None:
+        config = read_tox_config("lint", path=tox_project_setup_cfg)
+        assert config.name == "lint"
+        assert "ruff" in config.deps
+        assert any(cmd.args == ("ruff", "check", ".") for cmd in config.commands)
+
+
+class TestDefaultPath:
+    """Tests for default path (path=None uses cwd)."""
+
+    def test_default_path_uses_cwd(
+        self, tox_project_toml: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When path is not passed, config is read from current working directory."""
+        monkeypatch.chdir(tox_project_toml)
+        config = read_tox_config("py312")
+        assert config.name == "py312"
+        assert "pytest>=8" in config.deps
+
+
+class TestMinimalConfig:
+    """Tests for configs with missing extras, deps, dependency_groups, or commands."""
+
+    def test_minimal_toml_returns_empty_deps(self, tox_project_minimal_toml: Path) -> None:
+        config = read_tox_config("py312", path=tox_project_minimal_toml)
+        assert config.deps == ()
+
+    def test_minimal_toml_returns_empty_extras(self, tox_project_minimal_toml: Path) -> None:
+        config = read_tox_config("py312", path=tox_project_minimal_toml)
+        assert config.extras == frozenset()
+
+    def test_minimal_toml_returns_empty_dependency_groups(
+        self, tox_project_minimal_toml: Path
+    ) -> None:
+        config = read_tox_config("py312", path=tox_project_minimal_toml)
+        assert config.dependency_groups == frozenset()
+
+    def test_minimal_toml_returns_empty_commands(self, tox_project_minimal_toml: Path) -> None:
+        config = read_tox_config("py312", path=tox_project_minimal_toml)
+        assert config.commands == ()
+
+    def test_minimal_toml_has_name(self, tox_project_minimal_toml: Path) -> None:
+        config = read_tox_config("py312", path=tox_project_minimal_toml)
+        assert config.name == "py312"
+
+
 class TestToxCommand:
     """Tests for ToxCommand."""
 

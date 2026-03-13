@@ -31,15 +31,29 @@ dependencies = [
 
 [dependency-groups]
 test = [
-    "pytest>=7",
+    "pytest",
+]
+typing = [
+    "ty",
+]
+lint = [
+    "ruff",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/toxology"]
 
 [tool.tox]
-env_list = ["py312", "py313", "py314", "py315"]
+env_list = ["py312", "py313", "py314", "py315", "typing", "lint"]
 
 [tool.tox.env_run_base]
 dependency_groups = ["test"]
 commands = [["pytest", { replace = "posargs", default = [], extend = true }]]
+
+[tool.tox.env.typing]
+dependency_groups = ["typing", "test"]
+commands = [["ty", "check", "."]]
+
+[tool.tox.env.lint]
+dependency_groups = ["lint"]
+commands = [["ruff", "check", "."]]

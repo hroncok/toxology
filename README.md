@@ -20,3 +20,19 @@ for env in ["py312", "lint"]:
     config = read_tox_config(env)
     print(f"{env}: {config.deps}, {[c.args for c in config.commands]}")
 ```
+
+## Development
+
+Run all checks (tests, type checking, lint) with tox:
+
+```bash
+tox
+```
+
+Run a single environment, e.g. tests on one Python version or just lint:
+
+```bash
+tox run -e py312
+tox run -e lint
+tox run -e typing
+```
