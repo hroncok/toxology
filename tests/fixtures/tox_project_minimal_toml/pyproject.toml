@@ -1,0 +1,10 @@
+# Minimal pyproject.toml tox config: only env_list, no deps/extras/commands.
+[project]
+name = "minimal-project"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.tox]
+env_list = ["py312"]
+
+[tool.tox.env.py312]

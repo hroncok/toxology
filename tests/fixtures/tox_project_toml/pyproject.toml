@@ -1,0 +1,18 @@
+# A project dir with a pyproject.toml tox config (native TOML format).
+[project]
+name = "fixture-project"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.tox]
+env_list = ["py312", "lint"]
+
+[tool.tox.env.py312]
+deps = ["pytest>=8", "coverage"]
+extras = ["dev"]
+dependency_groups = ["test"]
+commands = [["pytest", "tests"], ["coverage", "report"]]
+
+[tool.tox.env.lint]
+deps = ["ruff"]
+commands = [["ruff", "check", "."]]

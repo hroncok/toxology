@@ -1,0 +1,13 @@
+# A project with minversion = "666" (impossible); reading config should still work.
+[project]
+name = "minversion-project"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.tox]
+minversion = "666"
+env_list = ["py312"]
+
+[tool.tox.env.py312]
+deps = ["pytest"]
+commands = [["pytest"]]
