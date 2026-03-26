@@ -1,0 +1,11 @@
+[project]
+name = "test-changedir"
+version = "0.1.0"
+
+[tool.tox]
+env_list = ["py312"]
+
+[tool.tox.env.py312]
+deps = ["pytest"]
+changedir = "tests"
+commands = [["pytest"]]

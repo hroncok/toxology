@@ -9,7 +9,7 @@ description = "Read tox configuration (deps, extras, commands) using the tox Pyt
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "src/toxology/_vendored/tox/"]
 authors = [
     { name = "Miro Hrončok", email = "miro@hroncok.cz" }
 ]
@@ -26,7 +26,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "tox>=4",
+    "packaging>=26",  # From ELN - for parsing deps/requirements/markers/pylock
+    "pluggy",  # From ELN - for tox plugin system
 ]
 
 [dependency-groups]

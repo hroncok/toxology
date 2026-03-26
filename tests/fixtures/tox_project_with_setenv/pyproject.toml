@@ -1,0 +1,11 @@
+[project]
+name = "test-setenv"
+version = "0.1.0"
+
+[tool.tox]
+env_list = ["py312"]
+
+[tool.tox.env.py312]
+deps = ["pytest"]
+setenv = {PYTHONHASHSEED = "42", TEST_VAR = "test_value"}
+commands = [["pytest"]]

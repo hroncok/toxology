@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+# Import vendored tox (installs stubs, adds vendored path to sys.path)
+from toxology import _vendored  # noqa: F401
 
 if TYPE_CHECKING:
     from typing import TypeVar
@@ -33,6 +37,10 @@ class ToxEnvConfig:
     """Dependency groups to install for the target package (normalized names)."""
     commands: tuple[Command, ...]
     """Test commands (pre + main + post) as tox would execute them. Raw :class:`tox.config.types.Command` (``.args``, ``ignore_exit_code``, ``invert_exit_code``)."""
+    setenv: dict[str, str]
+    """Environment variables to set when running commands (resolved from tox setenv config)."""
+    changedir: Path | None
+    """Working directory for commands (None if not set)."""
 
     @property
     def deps_list(self) -> list[str]:
@@ -84,21 +92,37 @@ def read_tox_config(env: str, path: Path | None = None) -> ToxEnvConfig:
     commands_pre = conf["commands_pre"]
     commands_main = conf["commands"]
     commands_post = conf["commands_post"]
-    all_commands = (*commands_pre, *commands_main, *commands_post)
+    all_commands = [*commands_pre, *commands_main, *commands_post]
+
+    # Extract setenv
+    setenv_obj = conf["setenv"]
+    if hasattr(setenv_obj, "_materialized") and hasattr(setenv_obj, "_raw"):
+        # Merge both materialized and raw values
+        setenv_dict = {**setenv_obj._materialized, **setenv_obj._raw}
+    else:
+        setenv_dict = {}
+
+    # Extract changedir
+    changedir = _get_conf(conf, "changedir", None)
 
     return ToxEnvConfig(
         name=env,
         deps=tuple(deps_list),
         extras=frozenset(extras_set),
         dependency_groups=frozenset(dependency_groups_set),
-        commands=all_commands,
+        commands=tuple(all_commands),
+        setenv=setenv_dict,
+        changedir=changedir,
     )
 
 
 def _get_tox_options(path: Path, env: str) -> tuple[Options, list[str]]:
     from tox.config.cli.parse import get_options
 
-    args = ["-c", str(path), "config", "-e", env]
+    # Use config command to avoid building/installing packages
+    # --no-provision to avoid tox trying to install newer tox versions
+    # --skip-pkg-install to skip package environment creation
+    args = ["-c", str(path), "--no-provision", "--skip-pkg-install", "config", "-e", env]
     return get_options(*args), args
 
 

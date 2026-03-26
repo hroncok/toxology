@@ -1,0 +1,27 @@
+--- a/plugin/manager.py
++++ b/plugin/manager.py
+@@ -91,9 +91,8 @@ class Plugin:
+             self.manager.check_pending()
+
+     def _load_external_plugins(self) -> None:
+-        for name in os.environ.get("TOX_DISABLED_EXTERNAL_PLUGINS", "").split(","):
+-            self.manager.set_blocked(name)
+-        self.manager.load_setuptools_entrypoints(NAME)
++        # TOXOLOGY: Skip external plugins - they may depend on packages we stub
++        pass
+
+     def tox_extend_envs(self) -> list[Iterable[str]]:
+         additional_env_names_hook_value = self.manager.hook.tox_extend_envs()
+--- a/config/sets.py
++++ b/config/sets.py
+@@ -137,8 +137,8 @@ class ConfigSet(ABC):
+         return definition
+
+     def _on_duplicate_conf(self, key: str, definition: ConfigDefinition[V]) -> None:
+-        msg = f"duplicate configuration definition for {self.name}:\nhas: {self._defined[key]}\nnew: {definition}"
+-        raise ValueError(msg)
++        # TOXOLOGY: Ignore duplicate config registrations - happens with our stubbed setup
++        pass
+
+     def __getitem__(self, item: str) -> Any:
+         """Get the config value for a given key (will materialize in case of dynamic config).

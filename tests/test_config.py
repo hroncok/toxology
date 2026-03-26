@@ -2,6 +2,7 @@
 
 import ast
 import linecache
+import sys
 from pathlib import Path
 
 import pytest
@@ -212,5 +213,150 @@ class TestReadmeExample:
         namespace: dict = {"read_tox_config": read_tox_config}
         self._exec_with_pytest_asserts(python_block, namespace, "<README example>")
         # Assertions are in the executed block; if we get here without exception, test passes
+
+
+class TestEnvPlaceholdersReplacedWithSysPrefix:
+    """Commands that use {envpython}, {envtmpdir} etc. get the tox env path replaced with sys.prefix."""
+
+    def test_commands_contain_sys_prefix_not_tox_env(
+        self, tox_project_ini_env_placeholders: Path
+    ) -> None:
+        """Command args have env placeholders resolved to sys.prefix by virtualenv stubs."""
+        # Read config for the same Python version that's running this test
+        env_name = f"py{sys.version_info.major}{sys.version_info.minor}"
+        config = read_tox_config(env_name, path=tox_project_ini_env_placeholders)
+        assert len(config.commands) == 2
+        # First command: {envpython} -c "print(1)" -> path under sys.prefix, -c, print(1)
+        assert config.commands[0].args[0].startswith(sys.prefix)
+        assert tuple(config.commands[0].args[1:]) == ("-c", "print(1)")
+        # Second command: echo {envtmpdir} -> echo, path under sys.prefix
+        assert config.commands[1].args[0] == "echo"
+        assert config.commands[1].args[1].startswith(sys.prefix)
+
+
+class TestSetenvExtraction:
+    """Tests for setenv extraction."""
+
+    def test_setenv_extracted(self, tox_project_with_setenv: Path) -> None:
+        """Setenv is extracted from tox config."""
+        config = read_tox_config("py312", path=tox_project_with_setenv)
+        assert "PYTHONHASHSEED" in config.setenv
+        assert config.setenv["PYTHONHASHSEED"] == "42"
+        assert "TEST_VAR" in config.setenv
+        assert config.setenv["TEST_VAR"] == "test_value"
+
+    def test_empty_setenv_returns_tox_defaults(self, tox_project_minimal_toml: Path) -> None:
+        """Config without user setenv still has tox defaults."""
+        config = read_tox_config("py312", path=tox_project_minimal_toml)
+        # Tox always adds these defaults
+        assert "PYTHONIOENCODING" in config.setenv
+        assert config.setenv["PYTHONIOENCODING"] == "utf-8"
+        # User-specified values should not be present
+        assert "TEST_VAR" not in config.setenv
+
+
+class TestChangedirExtraction:
+    """Tests for changedir extraction."""
+
+    def test_changedir_extracted(self, tox_project_with_changedir: Path) -> None:
+        """Changedir is extracted from tox config."""
+        config = read_tox_config("py312", path=tox_project_with_changedir)
+        assert config.changedir is not None
+        assert config.changedir.name == "tests"
+
+    def test_no_changedir_returns_project_root(self, tox_project_minimal_toml: Path) -> None:
+        """Config without changedir defaults to project root."""
+        config = read_tox_config("py312", path=tox_project_minimal_toml)
+        # Tox defaults changedir to project root (toxinidir) when not specified
+        assert config.changedir == tox_project_minimal_toml
+
+
+class TestVendoringVerification:
+    """Verify vendoring works correctly."""
+
+    def test_vendor_py_script_exists(self) -> None:
+        """Vendor script should exist and be executable."""
+        vendor_script = Path(__file__).parent.parent / "vendor.py"
+        assert vendor_script.exists(), "vendor.py script not found"
+        assert vendor_script.is_file(), "vendor.py is not a file"
+
+    def test_vendor_txt_exists(self) -> None:
+        """vendor.txt should document what's vendored."""
+        vendor_txt = Path(__file__).parent.parent / "src" / "toxology" / "_vendored" / "vendor.txt"
+        assert vendor_txt.exists(), "vendor.txt not found"
+        content = vendor_txt.read_text()
+        assert "tox==" in content, "vendor.txt doesn't document tox version"
+        assert "Vendored at:" in content, "vendor.txt doesn't document vendoring date"
+
+    def test_vendored_tox_exists(self) -> None:
+        """Vendored tox package should exist."""
+        tox_dir = Path(__file__).parent.parent / "src" / "toxology" / "_vendored" / "tox"
+        assert tox_dir.exists(), "Vendored tox directory not found"
+        assert tox_dir.is_dir(), "Vendored tox is not a directory"
+        # Check for key files
+        assert (tox_dir / "__init__.py").exists(), "tox/__init__.py not found"
+        assert (tox_dir / "plugin" / "manager.py").exists(), "tox/plugin/manager.py not found"
+
+    def test_patches_applied(self) -> None:
+        """Verify patches are applied to vendored tox."""
+        manager_py = Path(__file__).parent.parent / "src" / "toxology" / "_vendored" / "tox" / "plugin" / "manager.py"
+        content = manager_py.read_text()
+        assert "# TOXOLOGY:" in content, "TOXOLOGY comment marker not found in manager.py"
+        assert "Skip external plugins" in content, "External plugin patch not applied"
+
+        sets_py = Path(__file__).parent.parent / "src" / "toxology" / "_vendored" / "tox" / "config" / "sets.py"
+        content = sets_py.read_text()
+        assert "# TOXOLOGY:" in content, "TOXOLOGY comment marker not found in sets.py"
+
+
+class TestStubbedPackages:
+    """Tests that stubbed packages are not imported from real packages."""
+
+    def test_no_stubbed_packages_imported(self) -> None:
+        """Ensure importing toxology doesn't import real versions of stubbed packages."""
+        import sys
+
+        # Clear any previous imports
+        to_remove = [
+            m
+            for m in sys.modules
+            if any(
+                stub in m
+                for stub in [
+                    "virtualenv",
+                    "toxology",
+                    "cachetools",
+                    "filelock",
+                    "platformdirs",
+                    "pyproject_api",
+                    "tomli_w",
+                    "colorama",
+                ]
+            )
+        ]
+        for m in to_remove:
+            del sys.modules[m]
+
+        # Import toxology (which imports vendored tox)
+        from toxology import read_tox_config  # noqa: F401
+
+        # Verify stubbed packages show up as our stubs, not real packages
+        stubbed = [
+            "virtualenv",
+            "cachetools",
+            "filelock",
+            "platformdirs",
+            "pyproject_api",
+            "tomli_w",
+            "colorama",
+        ]
+        for stub_name in stubbed:
+            if stub_name in sys.modules:
+                mod = sys.modules[stub_name]
+                # Should be our stub module, not real package
+                # Our stubs are instances of Stub* classes or ModuleType with specific names
+                assert "stub" in mod.__class__.__name__.lower() or "Stub" in str(
+                    type(mod)
+                ), f"{stub_name} imported real package, not stub: {type(mod)}"
 
 
