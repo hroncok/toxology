@@ -1,82 +1,92 @@
-"""Vendored dependencies with stubs for unneeded packages.
+"""Vendored dependencies with import isolation using MetaPathFinder.
 
-This module:
-1. Installs stub modules into sys.modules (BEFORE vendored tox is imported)
-2. Adds the vendored directory to sys.path
+This module installs a custom MetaPathFinder that isolates vendored tox imports.
+The finder ensures:
+- User code can import real packages without getting our stubs
+- Vendored tox code gets our stubs when it imports these packages
+- No pollution of global sys.modules or sys.path
 
-The stubs intercept imports from vendored tox, preventing it from importing
-packages we don't need (virtualenv, cachetools, filelock, etc.).
+The finder intercepts imports of tox.* and stubbed modules, redirecting them
+to our _vendored/ directory while letting all other imports proceed normally.
 """
 
 from __future__ import annotations
 
 import sys
+from importlib.machinery import PathFinder
 from pathlib import Path
 
-from toxology._vendored._stubs import (
-    StubCachetools,
-    StubColorama,
-    StubDistlib,
-    StubFilelock,
-    StubPlatformdirs,
-    StubPythonDiscovery,
-    StubPyprojectApi,
-    StubTomliW,
-    StubVirtualenv,
-    StubVirtualenvDiscovery,
-    StubVirtualenvDiscoveryPySpec,
-)
+# Define which modules should be stubbed
+_STUB_MODULES = {
+    'virtualenv',
+    'cachetools',
+    'filelock',
+    'platformdirs',
+    'pyproject_api',
+    'distlib',
+    'python_discovery',
+    'tomli_w',
+    'colorama',
+}
 
-# Install stubs BEFORE adding vendored path to sys.path
-# This ensures tox imports our stubs instead of trying to import real packages
-virtualenv_stub = StubVirtualenv()
-virtualenv_stub.__version__ = "0.0.0"  # type: ignore[attr-defined]
-virtualenv_stub.app_data = StubVirtualenv.app_data  # type: ignore[attr-defined]
-virtualenv_stub.session_via_cli = StubVirtualenv.session_via_cli  # type: ignore[attr-defined]
-sys.modules["virtualenv"] = virtualenv_stub
 
-# Set up virtualenv submodules
-virtualenv_discovery_stub = StubVirtualenvDiscovery()
-sys.modules["virtualenv.discovery"] = virtualenv_discovery_stub
+class _VendoredImportFinder:
+    """MetaPathFinder to isolate vendored tox and stub module imports.
 
-virtualenv_discovery_py_spec_stub = StubVirtualenvDiscoveryPySpec()
-sys.modules["virtualenv.discovery.py_spec"] = virtualenv_discovery_py_spec_stub
-virtualenv_discovery_py_spec_stub.PythonSpec = StubVirtualenvDiscoveryPySpec.PythonSpec  # type: ignore[attr-defined]
-sys.modules["distlib"] = StubDistlib("distlib")
-sys.modules["python_discovery"] = StubPythonDiscovery("python_discovery")
+    This finder intercepts imports of:
+    1. The vendored tox package (tox.*)
+    2. Stub modules (virtualenv, cachetools, filelock, etc.)
 
-cachetools_stub = StubCachetools()
-sys.modules["cachetools"] = cachetools_stub
-cachetools_stub.cached = StubCachetools.cached  # type: ignore[attr-defined]
+    It redirects these imports to our _vendored/ directory while allowing
+    all other imports to proceed normally through the standard import system.
+    """
 
-filelock_stub = StubFilelock()
-sys.modules["filelock"] = filelock_stub
-# filelock.FileLock needs to be accessible
-filelock_stub.FileLock = StubFilelock.FileLock  # type: ignore[attr-defined]
+    def __init__(self, vendored_path: str, stub_modules: set[str]):
+        """Initialize the finder.
 
-platformdirs_stub = StubPlatformdirs()
-sys.modules["platformdirs"] = platformdirs_stub
+        Args:
+            vendored_path: Absolute path to the _vendored directory
+            stub_modules: Set of module names that should use stubs
+        """
+        self.vendored_path = vendored_path
+        self.stub_modules = stub_modules
+        # Pre-compute top-level package names for efficient lookup
+        self.stub_packages = {name.split('.')[0] for name in stub_modules}
 
-pyproject_api_stub = StubPyprojectApi()
-sys.modules["pyproject_api"] = pyproject_api_stub
-# pyproject_api exceptions/classes need to be accessible
-pyproject_api_stub.BackendFailed = StubPyprojectApi.BackendFailed  # type: ignore[attr-defined]
-pyproject_api_stub.Frontend = StubPyprojectApi.Frontend  # type: ignore[attr-defined]
-pyproject_api_stub.SubprocessFrontend = StubPyprojectApi.SubprocessFrontend  # type: ignore[attr-defined]
-pyproject_api_stub.CmdStatus = StubPyprojectApi.CmdStatus  # type: ignore[attr-defined]
-pyproject_api_stub.MetadataForBuildEditableResult = StubPyprojectApi.MetadataForBuildEditableResult  # type: ignore[attr-defined]
-pyproject_api_stub.MetadataForBuildWheelResult = StubPyprojectApi.MetadataForBuildWheelResult  # type: ignore[attr-defined]
-sys.modules["tomli_w"] = StubTomliW("tomli_w")
+    def find_spec(self, fullname: str, path: object, target: object = None) -> object | None:
+        """Find module spec for vendored/stubbed imports.
 
-colorama_stub = StubColorama()
-sys.modules["colorama"] = colorama_stub
-# colorama.Fore, .Back, .Style, init need to be accessible
-colorama_stub.Fore = StubColorama.Fore  # type: ignore[attr-defined]
-colorama_stub.Back = StubColorama.Back  # type: ignore[attr-defined]
-colorama_stub.Style = StubColorama.Style  # type: ignore[attr-defined]
-colorama_stub.init = StubColorama.init  # type: ignore[attr-defined]
+        Args:
+            fullname: Fully qualified module name
+            path: Package path (unused)
+            target: Target module (unused)
 
-# Now add vendored tox to import path
-_VENDOR_PATH = str(Path(__file__).parent)
-if _VENDOR_PATH not in sys.path:
-    sys.path.insert(0, _VENDOR_PATH)
+        Returns:
+            ModuleSpec if this finder should handle the import, None otherwise
+        """
+        from importlib.machinery import PathFinder
+
+        # Intercept tox imports
+        if fullname == 'tox' or fullname.startswith('tox.'):
+            return PathFinder.find_spec(fullname, path=[self.vendored_path])
+
+        # Intercept stub module imports
+        top_level = fullname.split('.')[0]
+        if top_level in self.stub_packages:
+            return PathFinder.find_spec(fullname, path=[self.vendored_path])
+
+        # Not our concern, let standard import proceed
+        return None
+
+
+# Install the finder at the front of sys.meta_path
+# This must happen BEFORE any imports of tox or stubbed modules
+_VENDORED_PATH = str(Path(__file__).parent)
+_finder = _VendoredImportFinder(_VENDORED_PATH, _STUB_MODULES)
+
+# Only install if not already present (avoid double installation)
+if _finder not in sys.meta_path:
+    sys.meta_path.insert(0, _finder)
+
+# Clean up namespace
+del Path, PathFinder

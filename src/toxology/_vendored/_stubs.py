@@ -42,6 +42,8 @@ class StubVirtualenvDiscovery(ModuleType):
 
     def __init__(self) -> None:
         super().__init__("virtualenv.discovery")
+        # Make this a package so submodules can be imported
+        self.__path__ = []  # type: ignore[attr-defined]
 
 
 class StubVirtualenv(ModuleType):
@@ -51,6 +53,8 @@ class StubVirtualenv(ModuleType):
 
     def __init__(self) -> None:
         super().__init__("virtualenv")
+        # Make this a package so submodules can be imported
+        self.__path__ = []  # type: ignore[attr-defined]
 
     class Creator:
         """Stub virtualenv Creator that provides paths under sys.prefix."""
