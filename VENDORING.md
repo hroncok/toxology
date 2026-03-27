@@ -26,7 +26,7 @@ Instead of vendoring tox's dependencies, we provide lightweight stub modules tha
 - **tomli-w** - Not used by tox at all (`_vendored/tomli_w.py`)
 - **colorama** - Only for terminal colors (`_vendored/colorama/__init__.py`)
 
-Each stub module imports from `_vendored/_stubs.py` (which contains the stub class definitions) and exports the necessary attributes.
+Each stub module contains its implementation directly, with classes and functions defined at module level.
 
 ## Runtime Dependencies (available in Fedora ELN)
 
@@ -165,37 +165,44 @@ Stubs exist as real Python modules in the `_vendored/` directory:
 - `_vendored/cachetools.py` - Single-file stub
 - (Similar for other stubbed packages)
 
-Each stub module imports from `_stubs.py` to reuse class definitions:
+Each stub module contains its implementation directly at module level. For example:
 
 ```python
 # _vendored/virtualenv/__init__.py
+from __future__ import annotations
+
+import sys
 from pathlib import Path
-from toxology._vendored._stubs import StubVirtualenv
 
-_module = StubVirtualenv()
-__version__ = _module.__version__
-app_data = _module.app_data
-session_via_cli = _module.session_via_cli
-Creator = _module.Creator
-Session = _module.Session
-__path__ = [str(Path(__file__).parent)]  # Enables submodule discovery
-```
+__version__ = "0.0.0"
+__path__ = [str(Path(__file__).parent)]
 
-**Stub class definitions** (`_stubs.py`):
 
-Contains the actual stub implementations with custom behavior:
+class Creator:
+    """Stub virtualenv Creator that provides paths under sys.prefix."""
 
-```python
-class StubVirtualenv(ModuleType):
-    class Creator:
-        def __init__(self):
-            import sys
-            self.exe = Path(sys.executable)
-            self.interpreter = InterpreterStub()
+    def __init__(self) -> None:
+        self.exe = Path(sys.executable)
+        self.script_dir = Path(sys.prefix) / "bin"
+        self.purelib = Path(sys.prefix) / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages"
+        self.platlib = self.purelib
+        self.libs = [self.purelib]
+        self.interpreter = self._create_interpreter_stub()
 
-    class Session:
-        def __init__(self):
-            self.creator = StubVirtualenv.Creator()
+    def _create_interpreter_stub(self) -> InterpreterStub:
+        return InterpreterStub()
+
+
+class Session:
+    """Stub virtualenv session."""
+
+    def __init__(self) -> None:
+        self.creator = Creator()
+
+
+def session_via_cli(*args: object, **kwargs: object) -> Session:
+    """Stub session_via_cli function."""
+    return Session()
 ```
 
 This allows tox's placeholder resolution (`{envpython}`, `{envtmpdir}`) to work naturally, resolving to `sys.prefix` paths instead of creating real virtualenvs.
@@ -212,12 +219,11 @@ Toxology is tested with:
 
 ### Import errors from stubbed packages
 
-If you see errors like `AttributeError: 'StubXYZ' object has no attribute 'foo'`:
+If you see errors like `AttributeError: module 'virtualenv' has no attribute 'foo'`:
 
 1. Check which stubbed package is missing the attribute
-2. Add the attribute to the stub class in `_stubs.py`
-3. Add the attribute export to the corresponding stub module file (e.g., `_vendored/virtualenv/__init__.py`)
-4. Run tests to verify the fix
+2. Add the attribute to the corresponding stub module file (e.g., `_vendored/virtualenv/__init__.py`)
+3. Run tests to verify the fix
 
 ### Patch application failures
 
