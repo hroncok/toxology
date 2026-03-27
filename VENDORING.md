@@ -11,22 +11,39 @@ We vendor **only tox itself** (~150 files, ~80KB):
 
 ## What's Stubbed (Not Vendored)
 
-Instead of vendoring tox's dependencies, we provide lightweight stub modules that exist as real Python files in the `_vendored/` directory:
+Instead of vendoring tox's dependencies, we provide lightweight stub modules that exist as real Python files in the `_stubs/` directory:
 
 - **virtualenv** - Not needed for config reading; stub provides paths under `sys.prefix`
-  - `_vendored/virtualenv/__init__.py` - Package stub
-  - `_vendored/virtualenv/discovery/__init__.py` - Sub-package stub
-  - `_vendored/virtualenv/discovery/py_spec.py` - Sub-module stub
-- **distlib** - virtualenv dependency (`_vendored/distlib.py`)
-- **python-discovery** - virtualenv dependency (`_vendored/python_discovery.py`)
-- **cachetools** - Only used in virtualenv package building (`_vendored/cachetools.py`)
-- **filelock** - Only used for virtualenv locking (`_vendored/filelock.py`)
-- **platformdirs** - Only used for finding user config (`_vendored/platformdirs.py`)
-- **pyproject-api** - Only used for PEP 517 builds (`_vendored/pyproject_api.py`)
-- **tomli-w** - Not used by tox at all (`_vendored/tomli_w.py`)
-- **colorama** - Only for terminal colors (`_vendored/colorama/__init__.py`)
+  - `_stubs/virtualenv/__init__.py` - Package stub
+  - `_stubs/virtualenv/discovery/__init__.py` - Sub-package stub
+  - `_stubs/virtualenv/discovery/py_spec.py` - Sub-module stub
+- **distlib** - virtualenv dependency (`_stubs/distlib.py`)
+- **python-discovery** - virtualenv dependency (`_stubs/python_discovery.py`)
+- **cachetools** - Only used in virtualenv package building (`_stubs/cachetools.py`)
+- **filelock** - Only used for virtualenv locking (`_stubs/filelock.py`)
+- **platformdirs** - Only used for finding user config (`_stubs/platformdirs.py`)
+- **pyproject-api** - Only used for PEP 517 builds (`_stubs/pyproject_api.py`)
+- **tomli-w** - Not used by tox at all (`_stubs/tomli_w.py`)
+- **colorama** - Only for terminal colors (`_stubs/colorama/__init__.py`)
 
 Each stub module contains its implementation directly, with classes and functions defined at module level.
+
+## Directory Organization
+
+Toxology separates vendored code from stub implementations for clarity:
+
+- **`src/toxology/_vendored/`** - Actual vendored code (tox only)
+  - Contains real vendored packages that we distribute
+  - Currently: tox 4.50.3 (~80KB, 126 files)
+  - Includes `vendor.txt` documenting what's vendored
+
+- **`src/toxology/_stubs/`** - Stub implementations
+  - Lightweight implementations of tox's dependencies
+  - Not real vendored code - just minimal stubs for config reading
+  - 9 stub modules totaling ~300 lines
+  - Contains `_IsolatedImportFinder` for import isolation
+
+This separation makes it clear what we actually vendor vs what we stub.
 
 ## Runtime Dependencies (available in Fedora ELN)
 
@@ -121,10 +138,10 @@ Toxology uses Python's `sys.meta_path` import hook system to achieve complete im
 
 ### How It Works
 
-1. When `toxology._vendored` is imported, a custom `MetaPathFinder` is installed at the front of `sys.meta_path`
+1. When `toxology._stubs` is imported, a custom `MetaPathFinder` is installed at the front of `sys.meta_path`
 2. When Python tries to import any module, it asks each finder in `sys.meta_path` (in order)
 3. Our finder intercepts imports of `tox.*` and stubbed modules (virtualenv, cachetools, etc.)
-4. These imports are redirected to the `_vendored/` directory using `PathFinder`
+4. Tox imports are redirected to `_vendored/tox/` and stub imports to `_stubs/` using `PathFinder`
 5. All other imports return `None`, letting the standard import system handle them
 
 ### Benefits
@@ -137,20 +154,24 @@ This approach ensures:
 
 ### Implementation Details
 
-**MetaPathFinder class** (`_vendored/__init__.py`):
+**MetaPathFinder class** (`_stubs/__init__.py`):
 ```python
-class _VendoredImportFinder:
+class _IsolatedImportFinder:
     """MetaPathFinder to isolate vendored tox and stub module imports."""
 
+    def __init__(self, vendored_path: str, stubs_path: str, stub_modules: set[str]):
+        self.vendored_path = vendored_path  # Path to vendored tox
+        self.stubs_path = stubs_path        # Path to stubs
+
     def find_spec(self, fullname: str, path: object, target: object = None):
-        # Intercept tox imports
+        # Intercept tox imports and redirect to vendored code
         if fullname == 'tox' or fullname.startswith('tox.'):
             return PathFinder.find_spec(fullname, path=[self.vendored_path])
 
-        # Intercept stub module imports
+        # Intercept stub module imports and redirect to stubs
         top_level = fullname.split('.')[0]
         if top_level in self.stub_packages:
-            return PathFinder.find_spec(fullname, path=[self.vendored_path])
+            return PathFinder.find_spec(fullname, path=[self.stubs_path])
 
         # Not our concern, let standard import proceed
         return None
@@ -158,17 +179,17 @@ class _VendoredImportFinder:
 
 **Stub module structure**:
 
-Stubs exist as real Python modules in the `_vendored/` directory:
-- `_vendored/virtualenv/__init__.py` - Full package with `__path__` for submodules
-- `_vendored/virtualenv/discovery/__init__.py` - Sub-package
-- `_vendored/virtualenv/discovery/py_spec.py` - Sub-module
-- `_vendored/cachetools.py` - Single-file stub
+Stubs exist as real Python modules in the `_stubs/` directory:
+- `_stubs/virtualenv/__init__.py` - Full package with `__path__` for submodules
+- `_stubs/virtualenv/discovery/__init__.py` - Sub-package
+- `_stubs/virtualenv/discovery/py_spec.py` - Sub-module
+- `_stubs/cachetools.py` - Single-file stub
 - (Similar for other stubbed packages)
 
 Each stub module contains its implementation directly at module level. For example:
 
 ```python
-# _vendored/virtualenv/__init__.py
+# _stubs/virtualenv/__init__.py
 from __future__ import annotations
 
 import sys
@@ -246,7 +267,7 @@ If `read_tox_config()` fails on a previously working package:
 
 If user code is getting stubs instead of real packages:
 
-1. Verify the MetaPathFinder is installed: Check `sys.meta_path[0].__class__.__name__ == "_VendoredImportFinder"`
+1. Verify the MetaPathFinder is installed: Check `sys.meta_path[0].__class__.__name__ == "_IsolatedImportFinder"`
 2. Check finder behavior: `sys.meta_path[0].find_spec('your_module', None)` should return `None` for non-tox modules
 3. Verify stub modules have correct `__path__`: Package stubs need `__path__ = [str(Path(__file__).parent)]`
 

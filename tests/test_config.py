@@ -315,16 +315,16 @@ class TestImportIsolation:
     def test_finder_installed_in_meta_path(self) -> None:
         """Ensure our finder is installed in sys.meta_path."""
         import sys
-        from toxology import _vendored  # noqa: F401
+        from toxology import _stubs  # noqa: F401
 
         # Finder should be first in meta_path
         finder = sys.meta_path[0]
-        assert finder.__class__.__name__ == "_VendoredImportFinder"
+        assert finder.__class__.__name__ == "_IsolatedImportFinder"
 
     def test_finder_intercepts_tox_imports(self) -> None:
         """Finder should handle tox imports."""
         import sys
-        from toxology import _vendored  # noqa: F401
+        from toxology import _stubs  # noqa: F401
 
         finder = sys.meta_path[0]
 
@@ -337,7 +337,7 @@ class TestImportIsolation:
     def test_finder_ignores_other_imports(self) -> None:
         """Finder should not interfere with other imports."""
         import sys
-        from toxology import _vendored  # noqa: F401
+        from toxology import _stubs  # noqa: F401
 
         finder = sys.meta_path[0]
 
@@ -360,7 +360,7 @@ class TestImportIsolation:
             del sys.modules[m]
 
         # Import toxology (installs finder but doesn't load stubs)
-        from toxology import _vendored  # noqa: F401
+        from toxology import _stubs  # noqa: F401
 
         # Stub modules should NOT be in sys.modules yet (not pre-populated)
         # They only get loaded when tox actually imports them

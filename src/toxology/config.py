@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-# Import vendored tox (installs stubs, adds vendored path to sys.path)
-from toxology import _vendored  # noqa: F401
+# Import stubs module (installs import finder for vendored tox and stubs)
+from toxology import _stubs  # noqa: F401
 
 if TYPE_CHECKING:
     from typing import TypeVar
