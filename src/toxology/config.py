@@ -14,9 +14,9 @@ install_import_hook()
 if TYPE_CHECKING:
     from typing import TypeVar
 
-    from tox.config.cli.parse import Options
-    from tox.config.types import Command
-    from tox.session.state import State
+    from tox.config.cli.parse import Options  # ty: ignore[unresolved-import]
+    from tox.config.types import Command  # ty: ignore[unresolved-import]
+    from tox.session.state import State  # ty: ignore[unresolved-import]
 
     T = TypeVar("T")
 
@@ -118,7 +118,7 @@ def read_tox_config(env: str, path: Path | None = None) -> ToxEnvConfig:
 
 
 def _get_tox_options(path: Path, env: str) -> tuple[Options, list[str]]:
-    from tox.config.cli.parse import get_options
+    from tox.config.cli.parse import get_options  # ty: ignore[unresolved-import]
 
     # Use config command to avoid building/installing packages
     # --no-provision to avoid tox trying to install newer tox versions
@@ -130,12 +130,12 @@ def _get_tox_options(path: Path, env: str) -> tuple[Options, list[str]]:
 def _get_conf(conf: object, key: str, default: T) -> T:
     """Return conf[key], or default if key is missing."""
     try:
-        return conf[key]  # type: ignore[index, return-value]
+        return conf[key]  # ty: ignore[not-subscriptable]
     except KeyError:
         return default
 
 
 def _get_tox_state(options: Options, args: list[str]) -> State:
-    from tox.session.state import State
+    from tox.session.state import State  # ty: ignore[unresolved-import]
 
     return State(options, args)

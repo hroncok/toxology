@@ -53,7 +53,7 @@ commands = [["pytest", { replace = "posargs", default = [], extend = true }]]
 
 [tool.tox.env.typing]
 dependency_groups = ["typing", "test"]
-commands = [["ty", "check", "."]]
+commands = [["ty", "check", "--exclude", "src/toxology/_vendored/**", "--exclude", "run_fedpkg_inspect.py", "."]]
 
 [tool.tox.env.lint]
 dependency_groups = ["lint"]

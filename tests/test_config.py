@@ -384,7 +384,8 @@ class TestImportIsolation:
         assert config.name == "py312"
 
         # Now stubs should be in sys.modules (because tox imported them)
-        import virtualenv
+        import virtualenv  # ty: ignore[unresolved-import]
+
         assert virtualenv.__version__ == "0.0.0"  # Our stub
 
 

@@ -11,6 +11,10 @@ To use the import hook, call install_import_hook() before importing tox.
 from __future__ import annotations
 
 import sys
+import types
+from collections.abc import Sequence
+from importlib.abc import MetaPathFinder
+from importlib.machinery import ModuleSpec
 from pathlib import Path
 
 # Stub modules that we provide instead of vendoring
@@ -27,7 +31,7 @@ _STUB_MODULES = {
 }
 
 
-class _IsolatedImportFinder:
+class _IsolatedImportFinder(MetaPathFinder):
     """MetaPathFinder to isolate vendored tox and stub module imports.
 
     This finder sits at the front of sys.meta_path and intercepts:
@@ -47,9 +51,9 @@ class _IsolatedImportFinder:
     def find_spec(
         self,
         fullname: str,
-        path: object,
-        target: object = None,
-    ) -> object | None:
+        path: Sequence[str] | None,
+        target: types.ModuleType | None = None,
+    ) -> ModuleSpec | None:
         """Find module spec for tox or stub modules."""
         # Import PathFinder here to avoid namespace issues
         from importlib.machinery import PathFinder
