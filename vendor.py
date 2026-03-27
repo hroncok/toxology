@@ -30,7 +30,7 @@ PATCH_FILE = REPO_ROOT / "tox.patch"
 def get_latest_tox_version() -> str:
     """Query PyPI for latest tox version."""
     url = "https://pypi.org/pypi/tox/json"
-    print(f"Querying PyPI for latest tox version...")
+    print("Querying PyPI for latest tox version...")
     with urllib.request.urlopen(url) as response:
         data = json.loads(response.read())
         version = data["info"]["version"]
@@ -67,7 +67,7 @@ def download_and_extract_tox(version: str, temp_dir: Path) -> Path:
         env=env,
     )
     if result.returncode != 0:
-        print(f"✗ pip download failed:")
+        print("✗ pip download failed:")
         print(result.stderr)
         raise RuntimeError(f"Failed to download tox {version}")
 
@@ -114,13 +114,13 @@ def copy_tox_package(tox_src: Path) -> None:
 
     # Remove old tox if exists
     if tox_dest.exists():
-        print(f"\nRemoving old vendored tox...")
+        print("\nRemoving old vendored tox...")
         shutil.rmtree(tox_dest)
 
     # Copy new tox
     print(f"Copying tox to {tox_dest}...")
     shutil.copytree(tox_src, tox_dest)
-    print(f"✓ Copied tox package")
+    print("✓ Copied tox package")
 
 
 def copy_license(temp_dir: Path) -> None:
@@ -185,7 +185,7 @@ def apply_patches() -> None:
 
     # If patch failed, try git apply
     result = subprocess.run(
-        ["git", "apply", "--directory", f"src/toxology/_vendored/tox", str(PATCH_FILE)],
+        ["git", "apply", "--directory", "src/toxology/_vendored/tox", str(PATCH_FILE)],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
@@ -202,8 +202,8 @@ def apply_patches() -> None:
     print("To fix this:")
     print(f"  1. Manually edit files in {tox_dir.relative_to(REPO_ROOT)}")
     print(f"  2. Regenerate the patch: cd {REPO_ROOT} && git diff src/toxology/_vendored/tox > tox.patch")
-    print(f"  3. Re-run: python vendor.py --version <version>")
-    print(f"\nPatch output:")
+    print("  3. Re-run: python vendor.py --version <version>")
+    print("\nPatch output:")
     print(result.stderr)
     raise RuntimeError("Patch application failed")
 
@@ -255,9 +255,9 @@ def main() -> None:
         update_vendor_txt(version)
 
         print(f"\n✅ Successfully vendored tox {version}")
-        print(f"\nNext steps:")
+        print("\nNext steps:")
         print(f"  1. Review changes: git diff {VENDOR_DIR.relative_to(REPO_ROOT)}")
-        print(f"  2. Run tests: tox run -e py312")
+        print("  2. Run tests: tox run -e py312")
         print(f"  3. Commit: git add {VENDOR_DIR.relative_to(REPO_ROOT)} && git commit -m 'Vendor tox {version}'")
 
     finally:

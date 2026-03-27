@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Run read_tox_config(py314) on .fedpkg/*/*-build/*/ dirs (excluding SPECPARTS) and print results."""
-import sys
 from pathlib import Path
 
 from toxology import read_tox_config

@@ -58,3 +58,8 @@ commands = [["ty", "check", "."]]
 [tool.tox.env.lint]
 dependency_groups = ["lint"]
 commands = [["ruff", "check", "."]]
+
+[tool.ruff]
+exclude = [
+    "src/toxology/_vendored/",
+]
