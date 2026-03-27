@@ -105,7 +105,7 @@ Toxology correctly handles:
 Toxology uses a unique vendoring strategy to eliminate tox as a runtime dependency:
 
 ### What's Vendored
-- **tox 4.50.3** only (~150 files, ~80KB)
+- **tox** only (~150 files, ~80KB)
 
 ### What's Stubbed (Not Vendored)
 Instead of vendoring tox's dependencies, we provide lightweight stubs:
@@ -159,7 +159,7 @@ tox run -e typing
 
 ## Compatibility
 
-- **Tox version**: 4.50.3 (vendored)
+- **Tox version**: 4 (vendored, for exact version see src/toxology/_vendored/vendor.txt)
 - **Python versions**: 3.12, 3.13, 3.14+
 - **Config formats**: tox.ini, pyproject.toml, setup.cfg
 - **Tox features**: Factor expansion, placeholders, conditional deps, markers, setenv, changedir

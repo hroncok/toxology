@@ -34,7 +34,7 @@ Toxology separates vendored code from stub implementations for clarity:
 
 - **`src/toxology/_vendored/`** - Actual vendored code (tox only)
   - Contains real vendored packages that we distribute
-  - Currently: tox 4.50.3 (~80KB, 126 files)
+  - Currently: tox (~80KB, 126 files as of 4.50.3)
   - Includes `vendor.txt` documenting what's vendored
 
 - **`src/toxology/_stubs/`** - Stub implementations
