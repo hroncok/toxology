@@ -7,8 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-# Import stubs module (installs import finder for vendored tox and stubs)
-from toxology import _stubs  # noqa: F401
+# Install import hook for vendored tox and stub isolation
+from toxology._stubs import install_import_hook
+
+install_import_hook()
 
 if TYPE_CHECKING:
     from typing import TypeVar

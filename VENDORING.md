@@ -138,7 +138,7 @@ Toxology uses Python's `sys.meta_path` import hook system to achieve complete im
 
 ### How It Works
 
-1. When `toxology._stubs` is imported, a custom `MetaPathFinder` is installed at the front of `sys.meta_path`
+1. When `install_import_hook()` is called, a custom `MetaPathFinder` is installed at the front of `sys.meta_path`
 2. When Python tries to import any module, it asks each finder in `sys.meta_path` (in order)
 3. Our finder intercepts imports of `tox.*` and stubbed modules (virtualenv, cachetools, etc.)
 4. Tox imports are redirected to `_vendored/tox/` and stub imports to `_stubs/` using `PathFinder`
@@ -151,6 +151,21 @@ This approach ensures:
 - **User code sees real packages** (or ImportError if not installed)
 - **No global pollution** of `sys.modules` or `sys.path`
 - **Import order independent** - Works regardless of whether you import toxology before or after other packages
+
+### Installation
+
+The import hook must be explicitly installed by calling `install_import_hook()`:
+
+```python
+from toxology._stubs import install_import_hook
+install_import_hook()
+
+# Now safe to import tox or use read_tox_config()
+from toxology import read_tox_config
+```
+
+This is done automatically when you import from `toxology.config`, so typical
+usage doesn't require manual hook installation.
 
 ### Implementation Details
 

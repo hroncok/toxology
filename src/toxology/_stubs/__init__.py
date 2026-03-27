@@ -4,6 +4,8 @@ This module provides a MetaPathFinder that:
 - Redirects tox imports to vendored tox code in _vendored/tox/
 - Redirects stub module imports to stub implementations in _stubs/
 - Allows user code to import real packages without seeing our stubs
+
+To use the import hook, call install_import_hook() before importing tox.
 """
 
 from __future__ import annotations
@@ -65,17 +67,31 @@ class _IsolatedImportFinder:
         return None
 
 
-# Install the finder at the front of sys.meta_path
-_vendored_dir = Path(__file__).parent.parent / "_vendored"
-_stubs_dir = Path(__file__).parent
-_finder = _IsolatedImportFinder(
-    vendored_path=str(_vendored_dir),
-    stubs_path=str(_stubs_dir),
-    stub_modules=_STUB_MODULES,
-)
+def install_import_hook() -> None:
+    """Install import hook for vendored tox and stub modules.
 
-# Only install if not already present (avoid duplicates)
-if not any(
-    isinstance(finder, _IsolatedImportFinder) for finder in sys.meta_path
-):
-    sys.meta_path.insert(0, _finder)
+    This function must be called before importing tox or using read_tox_config().
+    It installs a custom MetaPathFinder that redirects tox imports to vendored
+    code and stub module imports to our stub implementations.
+
+    The function is idempotent - calling it multiple times is safe and will not
+    install duplicate hooks.
+
+    Example:
+        from toxology._stubs import install_import_hook
+        install_import_hook()
+        from toxology import read_tox_config  # Now safe to import
+    """
+    # Check if already installed (idempotent)
+    if any(isinstance(finder, _IsolatedImportFinder) for finder in sys.meta_path):
+        return
+
+    # Create and install finder
+    vendored_dir = Path(__file__).parent.parent / "_vendored"
+    stubs_dir = Path(__file__).parent
+    finder = _IsolatedImportFinder(
+        vendored_path=str(vendored_dir),
+        stubs_path=str(stubs_dir),
+        stub_modules=_STUB_MODULES,
+    )
+    sys.meta_path.insert(0, finder)
