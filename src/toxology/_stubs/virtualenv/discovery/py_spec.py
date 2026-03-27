@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import platform
+import sys
+
 
 class PythonSpec:
     """Stub PythonSpec class with necessary attributes."""
@@ -10,13 +13,13 @@ class PythonSpec:
         self.path = path
         self.str_spec = ""
         self.implementation = "CPython"
-        self.architecture = 64
-        self.version_info = (3, 12, 0)
-        self.major = 3
-        self.minor = 12
-        self.micro = 0
-        self.machine = "x86_64"
-        self.free_threaded = False
+        self.architecture = 64 if sys.maxsize > 2**32 else 32
+        self.version_info = (sys.version_info.major, sys.version_info.minor, sys.version_info.micro)
+        self.major = sys.version_info.major
+        self.minor = sys.version_info.minor
+        self.micro = sys.version_info.micro
+        self.machine = platform.machine()
+        self.free_threaded = getattr(sys, "_is_gil_enabled", lambda: False)() if hasattr(sys, "_is_gil_enabled") else False
 
     @classmethod
     def from_string_spec(cls, spec: str) -> PythonSpec:

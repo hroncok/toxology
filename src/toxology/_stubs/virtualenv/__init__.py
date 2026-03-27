@@ -41,8 +41,8 @@ class InterpreterStub:
         self.platform = sys.platform
         self.implementation = "CPython"
         self.system_executable = Path(sys.executable)
-        self.architecture = 64  # Assume 64-bit
-        self.is_64 = True
+        self.architecture = 64 if sys.maxsize > 2**32 else 32
+        self.is_64 = sys.maxsize > 2**32
         self.machine = platform_module.machine()
         self.free_threaded = getattr(sys, "_is_gil_enabled", lambda: False)() if hasattr(sys, "_is_gil_enabled") else False
 
