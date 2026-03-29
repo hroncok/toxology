@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Semi-automated vendoring script for toxology.
 
 Vendors tox and applies patches from tox.patch.
