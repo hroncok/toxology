@@ -32,7 +32,7 @@ except ImportError:
         tomllib = None  # type: ignore
 
 REPO_ROOT = Path(__file__).parent
-VENDOR_DIR = REPO_ROOT / "src" / "toxology" / "_vendored"
+VENDOR_DIR = REPO_ROOT / "src/toxology/_vendored"
 VENDOR_TXT = VENDOR_DIR / "vendor.txt"
 PATCH_FILE = REPO_ROOT / "tox.patch"
 
