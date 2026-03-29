@@ -4,6 +4,31 @@ import json
 from importlib.metadata import distribution
 from pathlib import Path
 
+import pytest
+
+# SBOM file paths
+SBOM_SOURCE_TREE = Path(__file__).parent.parent / "src" / "toxology" / "_vendored" / "sbom.json"
+
+
+def get_sbom_installed_path() -> Path:
+    """Get path to installed SBOM in .dist-info/sboms/ directory."""
+    try:
+        dist = distribution("toxology")
+    except ModuleNotFoundError:
+        raise pytest.skip("toxology not installed, cannot check installed SBOM")
+
+    assert dist.files is not None
+
+    for file in dist.files:
+        # Look for sbom.json in the dist-info sboms directory
+        # The file path will be something like "toxology-0.1.0.dist-info/sboms/sbom.json"
+        if file.match("*.dist-info/sboms/sbom.json"):
+            located = Path(file.locate())
+            assert located.exists()
+            return located
+
+    raise FileNotFoundError("sbom.json not found in installed distribution files")
+
 
 class TestVendoringVerification:
     """Verify vendoring works correctly."""
@@ -44,133 +69,117 @@ class TestVendoringVerification:
 
     def test_sbom_exists_in_source_tree(self) -> None:
         """SBOM file should exist in source tree."""
-        sbom_file = Path(__file__).parent.parent / "src" / "toxology" / "_vendored" / "sbom.json"
-        assert sbom_file.exists(), "sbom.json not found in source tree"
-        assert sbom_file.is_file(), "sbom.json is not a file"
+        assert SBOM_SOURCE_TREE.exists(), f"sbom.json not found in source tree: {SBOM_SOURCE_TREE}"
+        assert SBOM_SOURCE_TREE.is_file(), f"sbom.json is not a file: {SBOM_SOURCE_TREE}"
 
-    def test_sbom_is_valid_json(self) -> None:
+    def test_sbom_exists_in_installed_package(self) -> None:
+        """SBOM should be present in installed package .dist-info/sboms/ directory."""
+        sbom_path = get_sbom_installed_path()
+        assert sbom_path.exists(), f"sbom.json not found in installed package: {sbom_path}"
+        assert sbom_path.is_file(), f"sbom.json is not a file: {sbom_path}"
+
+    @pytest.mark.parametrize("sbom_location", ["source_tree", "installed"])
+    def test_sbom_is_valid_json(self, sbom_location: str) -> None:
         """SBOM should be valid JSON."""
-        sbom_file = Path(__file__).parent.parent / "src" / "toxology" / "_vendored" / "sbom.json"
+        sbom_file = SBOM_SOURCE_TREE if sbom_location == "source_tree" else get_sbom_installed_path()
+
         try:
             with open(sbom_file) as f:
                 sbom = json.load(f)
         except json.JSONDecodeError as e:
-            raise AssertionError(f"SBOM is not valid JSON: {e}") from e
+            raise AssertionError(f"SBOM at {sbom_file} is not valid JSON: {e}") from e
 
-        assert isinstance(sbom, dict), "SBOM root should be a dictionary"
+        assert isinstance(sbom, dict), f"SBOM at {sbom_file} root should be a dictionary"
 
-    def test_sbom_has_cyclonedx_structure(self) -> None:
+    @pytest.mark.parametrize("sbom_location", ["source_tree", "installed"])
+    def test_sbom_has_cyclonedx_structure(self, sbom_location: str) -> None:
         """SBOM should have CycloneDX 1.6 structure."""
-        sbom_file = Path(__file__).parent.parent / "src" / "toxology" / "_vendored" / "sbom.json"
+        sbom_file = SBOM_SOURCE_TREE if sbom_location == "source_tree" else get_sbom_installed_path()
+
         with open(sbom_file) as f:
             sbom = json.load(f)
 
         # Check required top-level fields
-        assert sbom.get("bomFormat") == "CycloneDX", "bomFormat should be 'CycloneDX'"
-        assert sbom.get("specVersion") == "1.6", "specVersion should be '1.6'"
-        assert "serialNumber" in sbom, "serialNumber is required"
-        assert sbom["serialNumber"].startswith("urn:uuid:"), "serialNumber should be a UUID URN"
-        assert sbom.get("version") == 1, "version should be 1"
+        assert sbom.get("bomFormat") == "CycloneDX", f"bomFormat should be 'CycloneDX' in {sbom_file}"
+        assert sbom.get("specVersion") == "1.6", f"specVersion should be '1.6' in {sbom_file}"
+        assert "serialNumber" in sbom, f"serialNumber is required in {sbom_file}"
+        assert sbom["serialNumber"].startswith("urn:uuid:"), f"serialNumber should be a UUID URN in {sbom_file}"
+        assert sbom.get("version") == 1, f"version should be 1 in {sbom_file}"
 
         # Check metadata
-        assert "metadata" in sbom, "metadata is required"
-        assert "timestamp" in sbom["metadata"], "metadata.timestamp is required"
-        assert "component" in sbom["metadata"], "metadata.component is required"
+        assert "metadata" in sbom, f"metadata is required in {sbom_file}"
+        assert "timestamp" in sbom["metadata"], f"metadata.timestamp is required in {sbom_file}"
+        assert "component" in sbom["metadata"], f"metadata.component is required in {sbom_file}"
 
         # Check components array
-        assert "components" in sbom, "components array is required"
-        assert isinstance(sbom["components"], list), "components should be a list"
+        assert "components" in sbom, f"components array is required in {sbom_file}"
+        assert isinstance(sbom["components"], list), f"components should be a list in {sbom_file}"
 
-    def test_sbom_documents_toxology(self) -> None:
+    @pytest.mark.parametrize("sbom_location", ["source_tree", "installed"])
+    def test_sbom_documents_toxology(self, sbom_location: str) -> None:
         """SBOM should document toxology as primary component."""
-        sbom_file = Path(__file__).parent.parent / "src" / "toxology" / "_vendored" / "sbom.json"
+        sbom_file = SBOM_SOURCE_TREE if sbom_location == "source_tree" else get_sbom_installed_path()
+
         with open(sbom_file) as f:
             sbom = json.load(f)
 
         primary = sbom["metadata"]["component"]
-        assert primary.get("name") == "toxology", "Primary component should be 'toxology'"
-        assert primary.get("type") == "library", "Primary component type should be 'library'"
-        assert "version" in primary, "Primary component should have version"
-        assert "purl" in primary, "Primary component should have PURL"
-        assert primary["purl"].startswith("pkg:pypi/toxology@"), "PURL should be for toxology"
+        assert primary.get("name") == "toxology", f"Primary component should be 'toxology' in {sbom_file}"
+        assert primary.get("type") == "library", f"Primary component type should be 'library' in {sbom_file}"
+        assert "version" in primary, f"Primary component should have version in {sbom_file}"
+        assert "purl" in primary, f"Primary component should have PURL in {sbom_file}"
+        assert primary["purl"].startswith("pkg:pypi/toxology@"), f"PURL should be for toxology in {sbom_file}"
 
-    def test_sbom_documents_vendored_tox(self) -> None:
+    @pytest.mark.parametrize("sbom_location", ["source_tree", "installed"])
+    def test_sbom_documents_vendored_tox(self, sbom_location: str) -> None:
         """SBOM should document vendored tox with version and license."""
-        sbom_file = Path(__file__).parent.parent / "src" / "toxology" / "_vendored" / "sbom.json"
+        sbom_file = SBOM_SOURCE_TREE if sbom_location == "source_tree" else get_sbom_installed_path()
+
         with open(sbom_file) as f:
             sbom = json.load(f)
 
         # Find tox component
         tox_components = [c for c in sbom["components"] if c.get("name") == "tox"]
-        assert len(tox_components) == 1, "Should have exactly one tox component"
+        assert len(tox_components) == 1, f"Should have exactly one tox component in {sbom_file}"
 
         tox = tox_components[0]
-        assert tox.get("type") == "library", "tox type should be 'library'"
-        assert "version" in tox, "tox should have version"
-        assert tox["version"].startswith("4."), "tox version should start with 4."
-        assert tox.get("scope") == "required", "tox scope should be 'required' (bundled)"
+        assert tox.get("type") == "library", f"tox type should be 'library' in {sbom_file}"
+        assert "version" in tox, f"tox should have version in {sbom_file}"
+        assert tox["version"].startswith("4."), f"tox version should start with 4. in {sbom_file}"
+        assert tox.get("scope") == "required", f"tox scope should be 'required' (bundled) in {sbom_file}"
 
         # Check license
-        assert "licenses" in tox, "tox should have licenses"
-        assert isinstance(tox["licenses"], list), "licenses should be a list"
-        assert len(tox["licenses"]) > 0, "tox should have at least one license"
+        assert "licenses" in tox, f"tox should have licenses in {sbom_file}"
+        assert isinstance(tox["licenses"], list), f"licenses should be a list in {sbom_file}"
+        assert len(tox["licenses"]) > 0, f"tox should have at least one license in {sbom_file}"
         # Check first license has MIT
         first_license = tox["licenses"][0]
-        assert "license" in first_license, "license entry should have 'license' field"
-        assert first_license["license"].get("id") == "MIT", "tox license should be MIT"
+        assert "license" in first_license, f"license entry should have 'license' field in {sbom_file}"
+        assert first_license["license"].get("id") == "MIT", f"tox license should be MIT in {sbom_file}"
 
         # Check PURL
-        assert "purl" in tox, "tox should have PURL"
-        assert tox["purl"].startswith("pkg:pypi/tox@"), "PURL should be for tox"
+        assert "purl" in tox, f"tox should have PURL in {sbom_file}"
+        assert tox["purl"].startswith("pkg:pypi/tox@"), f"PURL should be for tox in {sbom_file}"
 
-    def test_sbom_documents_dependency_relationship(self) -> None:
+    @pytest.mark.parametrize("sbom_location", ["source_tree", "installed"])
+    def test_sbom_documents_dependency_relationship(self, sbom_location: str) -> None:
         """SBOM should document that toxology depends on tox."""
-        sbom_file = Path(__file__).parent.parent / "src" / "toxology" / "_vendored" / "sbom.json"
+        sbom_file = SBOM_SOURCE_TREE if sbom_location == "source_tree" else get_sbom_installed_path()
+
         with open(sbom_file) as f:
             sbom = json.load(f)
 
-        assert "dependencies" in sbom, "SBOM should have dependencies array"
-        assert isinstance(sbom["dependencies"], list), "dependencies should be a list"
+        assert "dependencies" in sbom, f"SBOM should have dependencies array in {sbom_file}"
+        assert isinstance(sbom["dependencies"], list), f"dependencies should be a list in {sbom_file}"
 
         # Find toxology dependency entry
         toxology_deps = [d for d in sbom["dependencies"] if "toxology" in d.get("ref", "")]
-        assert len(toxology_deps) > 0, "Should have dependency entry for toxology"
+        assert len(toxology_deps) > 0, f"Should have dependency entry for toxology in {sbom_file}"
 
         toxology_dep = toxology_deps[0]
-        assert "dependsOn" in toxology_dep, "toxology dependency should have dependsOn"
-        assert isinstance(toxology_dep["dependsOn"], list), "dependsOn should be a list"
+        assert "dependsOn" in toxology_dep, f"toxology dependency should have dependsOn in {sbom_file}"
+        assert isinstance(toxology_dep["dependsOn"], list), f"dependsOn should be a list in {sbom_file}"
 
         # Check that tox is listed as a dependency
         tox_purls = [dep for dep in toxology_dep["dependsOn"] if "tox@" in dep]
-        assert len(tox_purls) > 0, "toxology should depend on tox"
-
-    def test_sbom_exists_in_installed_package(self) -> None:
-        """SBOM should be present in installed package .dist-info/sboms/ directory."""
-        # Get the distribution object for toxology
-        dist = distribution("toxology")
-
-        # Find the .dist-info directory location
-        # The dist._path attribute points to the .dist-info directory
-        dist_info_path = Path(str(dist._path))
-        assert dist_info_path.exists(), f"dist-info directory not found: {dist_info_path}"
-
-        # Check for sboms subdirectory
-        sboms_dir = dist_info_path / "sboms"
-        assert sboms_dir.exists(), f"sboms directory not found in {dist_info_path}"
-        assert sboms_dir.is_dir(), f"sboms is not a directory: {sboms_dir}"
-
-        # Check for sbom.json in sboms directory
-        installed_sbom = sboms_dir / "sbom.json"
-        assert installed_sbom.exists(), f"sbom.json not found in {sboms_dir}"
-        assert installed_sbom.is_file(), f"sbom.json is not a file: {installed_sbom}"
-
-        # Verify it's valid JSON with correct structure
-        with open(installed_sbom) as f:
-            sbom = json.load(f)
-
-        assert sbom.get("bomFormat") == "CycloneDX", "Installed SBOM should be CycloneDX format"
-        assert sbom.get("specVersion") == "1.6", "Installed SBOM should be version 1.6"
-
-        # Verify it documents tox
-        tox_components = [c for c in sbom.get("components", []) if c.get("name") == "tox"]
-        assert len(tox_components) == 1, "Installed SBOM should document tox"
+        assert len(tox_purls) > 0, f"toxology should depend on tox in {sbom_file}"
