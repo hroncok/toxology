@@ -18,8 +18,18 @@ import shutil
 import subprocess
 import sys
 import urllib.request
-from datetime import datetime
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
+
+try:
+    import tomllib
+except ImportError:
+    # Python < 3.11 fallback
+    try:
+        import tomli as tomllib  # type: ignore
+    except ImportError:
+        tomllib = None  # type: ignore
 
 REPO_ROOT = Path(__file__).parent
 VENDOR_DIR = REPO_ROOT / "src" / "toxology" / "_vendored"
@@ -219,6 +229,104 @@ def update_vendor_txt(version: str) -> None:
     print(f"✓ Updated vendor.txt with tox {version}")
 
 
+def get_toxology_version() -> str:
+    """Get toxology version from pyproject.toml."""
+    pyproject = REPO_ROOT / "pyproject.toml"
+    try:
+        if tomllib is None:
+            # Fallback: simple regex parsing
+            content = pyproject.read_text()
+            import re
+            match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
+            if match:
+                return match.group(1)
+            raise ValueError("version not found in pyproject.toml")
+
+        with open(pyproject, "rb") as f:
+            data = tomllib.load(f)
+            return data["project"]["version"]
+    except Exception as e:
+        print(f"⚠ Warning: Could not read version from pyproject.toml: {e}")
+        return "0.0.0"
+
+
+def generate_sbom(tox_version: str) -> None:
+    """Generate CycloneDX SBOM documenting vendored tox."""
+    print("\nGenerating SBOM...")
+
+    toxology_version = get_toxology_version()
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    serial_number = f"urn:uuid:{uuid.uuid4()}"
+
+    sbom = {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.6",
+        "serialNumber": serial_number,
+        "version": 1,
+        "metadata": {
+            "timestamp": timestamp,
+            "tools": {
+                "components": [
+                    {
+                        "type": "application",
+                        "name": "vendor.py",
+                        "version": "1.0"
+                    }
+                ]
+            },
+            "component": {
+                "type": "library",
+                "bom-ref": f"pkg:pypi/toxology@{toxology_version}",
+                "name": "toxology",
+                "version": toxology_version,
+                "purl": f"pkg:pypi/toxology@{toxology_version}"
+            }
+        },
+        "components": [
+            {
+                "type": "library",
+                "bom-ref": f"pkg:pypi/tox@{tox_version}",
+                "name": "tox",
+                "version": tox_version,
+                "scope": "required",
+                "licenses": [
+                    {
+                        "license": {
+                            "id": "MIT"
+                        }
+                    }
+                ],
+                "purl": f"pkg:pypi/tox@{tox_version}",
+                "externalReferences": [
+                    {
+                        "type": "website",
+                        "url": "https://tox.wiki"
+                    },
+                    {
+                        "type": "vcs",
+                        "url": "https://github.com/tox-dev/tox"
+                    }
+                ]
+            }
+        ],
+        "dependencies": [
+            {
+                "ref": f"pkg:pypi/toxology@{toxology_version}",
+                "dependsOn": [
+                    f"pkg:pypi/tox@{tox_version}"
+                ]
+            }
+        ]
+    }
+
+    sbom_file = VENDOR_DIR / "sbom.json"
+    with open(sbom_file, "w", encoding="utf-8") as f:
+        json.dump(sbom, f, indent=2, ensure_ascii=False)
+        f.write("\n")  # Trailing newline
+
+    print(f"✓ Generated SBOM at {sbom_file.relative_to(REPO_ROOT)}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Vendor tox for toxology")
     parser.add_argument(
@@ -250,6 +358,9 @@ def main() -> None:
 
         # Apply patches
         apply_patches()
+
+        # Generate SBOM
+        generate_sbom(version)
 
         # Update vendor.txt
         update_vendor_txt(version)

@@ -69,7 +69,8 @@ This will:
 2. Download it using pip
 3. Extract to `src/toxology/_vendored/tox/`
 4. Apply patches from `tox.patch` using `patch` command
-5. Update `vendor.txt` with the new version and date
+5. Generate SBOM at `src/toxology/_vendored/sbom.json`
+6. Update `vendor.txt` with the new version and date
 
 ### Update to Specific Version
 
@@ -289,3 +290,38 @@ If user code is getting stubs instead of real packages:
 ## License Compliance
 
 Vendored tox is distributed under its original MIT license. The license file is copied to `src/toxology/_vendored/tox/LICENSE` during vendoring.
+
+## SBOM (Software Bill of Materials)
+
+Toxology includes a CycloneDX 1.6 JSON SBOM documenting the vendored tox package, complying with PEP 770.
+
+### SBOM Location
+
+- **In repository**: `src/toxology/_vendored/sbom.json`
+- **In wheel**: `.dist-info/sboms/sbom.json`
+- **Auto-generated**: Updated every time `vendor.py` runs
+
+### SBOM Content
+
+The SBOM documents:
+- **Primary component**: toxology (version from pyproject.toml)
+- **Bundled component**: tox (version, MIT license, PURL)
+- **Metadata**: Timestamp, serial number (UUID), generating tool
+- **Dependencies**: Relationship showing toxology bundles tox
+
+### Format
+
+- **Standard**: CycloneDX 1.6
+- **Format**: UTF-8 JSON (recommended by PEP 770)
+- **Schema**: https://cyclonedx.org/docs/1.6/json/
+
+### Verification
+
+After building a wheel:
+```bash
+# Check SBOM is included in wheel
+unzip -l dist/toxology-*.whl | grep sbom
+
+# Extract and view SBOM
+unzip -p dist/toxology-*.whl toxology-*.dist-info/sboms/sbom.json | python -m json.tool
+```

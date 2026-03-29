@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.28.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -43,6 +43,7 @@ lint = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/toxology"]
+sbom-files = ["src/toxology/_vendored/sbom.json"]
 
 [tool.tox]
 env_list = ["py312", "py313", "py314", "py315", "typing", "lint"]
