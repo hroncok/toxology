@@ -30,6 +30,11 @@ dependencies = [
     "pluggy",  # From ELN - for tox plugin system
 ]
 
+[project.urls]
+Homepage = "https://github.com/hroncok/toxology"
+Source = "https://github.com/hroncok/toxology"
+Issues = "https://github.com/hroncok/toxology/issues"
+
 [dependency-groups]
 test = [
     "pytest",
