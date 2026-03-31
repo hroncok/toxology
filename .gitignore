@@ -1,5 +1,6 @@
 /dist
 /venv
 /.tox
+/.claude
 /.fedpkg*
 __pycache__/
