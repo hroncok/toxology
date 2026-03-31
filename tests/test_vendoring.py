@@ -63,10 +63,6 @@ class TestVendoringVerification:
         assert "# TOXOLOGY:" in content, "TOXOLOGY comment marker not found in manager.py"
         assert "Skip external plugins" in content, "External plugin patch not applied"
 
-        sets_py = Path(__file__).parent.parent / "src/toxology/_vendored/tox/config/sets.py"
-        content = sets_py.read_text()
-        assert "# TOXOLOGY:" in content, "TOXOLOGY comment marker not found in sets.py"
-
     def test_sbom_exists_in_source_tree(self) -> None:
         """SBOM file should exist in source tree."""
         assert SBOM_SOURCE_TREE.exists(), f"sbom.json not found in source tree: {SBOM_SOURCE_TREE}"

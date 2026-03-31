@@ -136,8 +136,8 @@ class ConfigSet(ABC):
         return definition
 
     def _on_duplicate_conf(self, key: str, definition: ConfigDefinition[V]) -> None:
-        # TOXOLOGY: Ignore duplicate config registrations - happens with our stubbed setup
-        pass
+        msg = f"duplicate configuration definition for {self.name}:\nhas: {self._defined[key]}\nnew: {definition}"
+        raise ValueError(msg)
 
     def __getitem__(self, item: str) -> Any:
         """Get the config value for a given key (will materialize in case of dynamic config).
