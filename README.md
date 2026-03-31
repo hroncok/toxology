@@ -4,6 +4,16 @@ Read tox configuration (deps, extras, dependency groups, commands, setenv, chang
 
 Toxology vendors tox and provides lightweight stubs for its dependencies, making it suitable for use in Fedora/RHEL RPM builds where tox and virtualenv are not available.
 
+## ⚠️ Project Status: Proof of Concept
+
+**This is an experimental proof of concept project created with extensive AI assistance to explore whether this vendoring approach is viable.**
+
+- ⚠️ **API is unstable** - The API may change at any time without notice
+- ⚠️ **Not production-ready** - This is for experimentation only
+- ⚠️ **Uncertain future** - It is not yet determined whether this will be used in Fedora RPM macros or continue development
+
+**Do not use this project for anything beyond experimentation and evaluation.**
+
 ## Features
 
 - ✅ **No tox runtime dependency** - tox is vendored, only `packaging>=26` and `pluggy` required
