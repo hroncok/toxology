@@ -52,6 +52,12 @@ tox -e lint
 
 However before committing, all tox environments must pass. No exceptions.
 
+**CRITICAL**: Running `tox` before every commit prevents:
+- Syntax errors (e.g., invalid TOML structure)
+- Type errors
+- Test failures
+- Broken commits that require amendments
+
 If you modify vendoring:
 ```bash
 # 4. Verify vendoring is reproducible
@@ -164,8 +170,10 @@ The import hook in `src/toxology/_stubs/__init__.py` is critical. Don't modify i
 - Fix unrelated bugs or issues while working on a task
 - Clean up unrelated code "while you're at it"
 - Remove broken references or fix typos unless that's what was asked
+- Remove or add blank lines that aren't part of the requested change
+- Reformat existing text or code
 
-Example:
+Examples:
 ```
 User: "Add warning section to README"
 
@@ -173,7 +181,16 @@ User: "Add warning section to README"
 ❌ WRONG: Add warning section AND fix broken reference in same change
 ```
 
+```
+User: "Add project.urls to pyproject.toml"
+
+✅ CORRECT: Add [project.urls] section, keep all existing blank lines
+❌ WRONG: Add [project.urls] AND remove blank line between classifiers and dependencies
+```
+
 If you notice something wrong, say: "I noticed X is broken. Should I fix that separately?"
+
+After making changes, review `git diff` to ensure ONLY the requested changes are present.
 
 ## Vendoring
 
