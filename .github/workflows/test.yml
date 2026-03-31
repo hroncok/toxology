@@ -21,7 +21,7 @@ jobs:
           - typing
           - lint
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: fedora-python/tox-github-action@main
         with:
           tox_env: ${{ matrix.tox-env }}
