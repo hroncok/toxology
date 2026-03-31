@@ -10,7 +10,7 @@ Toxology vendors tox and provides lightweight stubs for its dependencies, making
 - ✅ **Comprehensive config extraction** - deps, extras, dependency_groups, commands, setenv, changedir
 - ✅ **All tox config formats** - tox.ini, pyproject.toml, setup.cfg
 - ✅ **Full tox features** - factor expansion, placeholders, conditional deps, markers
-- ✅ **95.3% success rate** on real-world Fedora packages (205/215)
+- ✅ **95.3% success rate** on real-world Fedora packages (205/215) - the rest appear to be broken configs anyway
 - ✅ **Python 3.12+** support
 
 ## Installation
@@ -127,8 +127,6 @@ Tested on **215 real Fedora packages**:
 - ✅ **205/215 succeeded (95.3%)**
 - ✅ All 10 failures were legitimate package issues (missing tox configs or broken tox.ini files)
 - ✅ Successfully extracts config from pytest, OpenStack, Fedora tooling packages
-
-See [REAL_WORLD_TEST_RESULTS.md](REAL_WORLD_TEST_RESULTS.md) for full validation report.
 
 ## Use Cases
 

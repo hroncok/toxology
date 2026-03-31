@@ -85,12 +85,7 @@ python vendor.py --version 4.24.0
    tox run -e py312,py313,py314
    ```
 
-2. **Test on real packages** to verify compatibility:
-   ```bash
-   .venv/bin/python3 run_fedpkg_inspect.py
-   ```
-
-3. **Review changes** in vendored code:
+2. **Review changes** in vendored code:
    ```bash
    git diff src/toxology/_vendored/
    ```
