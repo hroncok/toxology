@@ -1,0 +1,27 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.tox-env }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tox-env:
+          - py312
+          - py313
+          - py314
+          - py315
+          - typing
+          - lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: fedora-python/tox-github-action@main
+        with:
+          tox_env: ${{ matrix.tox-env }}
