@@ -151,6 +151,30 @@ The import hook in `src/toxology/_stubs/__init__.py` is critical. Don't modify i
 2. You've tested extensively with real-world packages
 3. The user explicitly requests changes
 
+### Don't Mix Unrelated Changes
+
+**CRITICAL**: Never mix unrelated changes in a single commit or action, even if you notice something is wrong.
+
+**DO**:
+- Make only the changes that were requested
+- If you notice an unrelated issue, mention it separately to the user
+- Let the user decide whether to address it
+
+**DON'T**:
+- Fix unrelated bugs or issues while working on a task
+- Clean up unrelated code "while you're at it"
+- Remove broken references or fix typos unless that's what was asked
+
+Example:
+```
+User: "Add warning section to README"
+
+✅ CORRECT: Add only the warning section, mention broken reference separately
+❌ WRONG: Add warning section AND fix broken reference in same change
+```
+
+If you notice something wrong, say: "I noticed X is broken. Should I fix that separately?"
+
 ## Vendoring
 
 ### Updating Vendored Tox
